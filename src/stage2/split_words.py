@@ -47,10 +47,14 @@ def split_book_info(info: str):
         word = word.strip()
         if word not in useless_words:
             if '[' in word:
-                key_words.add(word[0:3])
-                key_words.add(word[3:].strip())
+                idx = word.find(']')
+                key_words.add(word[0:idx+1])
+                key_words.add(word[idx+1:].strip())
             else:
                 key_words.add(word)
+            if len(word) >= 4:
+                split_list = set(jieba.cut_for_search(word))
+                key_words = set.union(key_words,split_list)
     return key_words
 
 def split_book(book):
@@ -99,6 +103,9 @@ def split_movie_info(info: str):
                 key_words.add(word[:idx])
             else:
                 key_words.add(word)
+            if len(word) >= 4:
+                split_list = set(jieba.cut_for_search(word))
+                key_words = set.union(key_words,split_list)
     return key_words
 
 def split_movie_stuff(stuff: str):
@@ -118,6 +125,9 @@ def split_movie_stuff(stuff: str):
         for word in word_list:
             if len(word) != 0:
                 key_words.add(word)
+                if len(word) >= 4:
+                    split_list = set(jieba.cut_for_search(word))
+                    key_words = set.union(key_words,split_list)
     return key_words
 
 def split_movie(movie):
