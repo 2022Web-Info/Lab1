@@ -1,5 +1,6 @@
 import pandas as pd
 import jieba
+import pickle
 from tqdm import tqdm
 """
     对于书籍和电影的信息进行分词
@@ -13,6 +14,7 @@ string = '''理查德·林克莱特 导演
 罗多尔·保利 饰 Journalist #2 
 '''
 
+word_dict = []
 
 def split_English(str):
     "将一句话中最后的英文部分完整分离"
@@ -67,6 +69,7 @@ def split_book(book):
     for word in key_words:
         word = str(word)
         jieba.add_word(word)
+        word_dict.append(word)
     key_words = set.union(key_words, set(jieba.cut_for_search(intro)))
     for word in key_words:
         word = str(word)
@@ -98,7 +101,6 @@ def split_movie_info(info: str):
                 key_words.add(word)
     return key_words
 
-
 def split_movie_stuff(stuff: str):
     """
         从电影的演职员表中提取关键词
@@ -117,7 +119,6 @@ def split_movie_stuff(stuff: str):
             if len(word) != 0:
                 key_words.add(word)
     return key_words
-
 
 def split_movie(movie):
     """
@@ -143,12 +144,12 @@ def split_movie(movie):
     for word in key_words:
         word = str(word)
         jieba.add_word(word)
+        word_dict.append(word)
     key_words = set.union(key_words, set(jieba.cut_for_search(intro)))
     for word in key_words:
         word = str(word)
         jieba.del_word(word)
     return key_words
-    
 
 if __name__ == "__main__":
     book_data = pd.read_csv("./data/book.csv")
@@ -185,4 +186,6 @@ if __name__ == "__main__":
         key_words = key_words - stopwords
         movie_words.append({'id': movie['id'], 'words': key_words})
     pd.DataFrame(movie_words,columns=col_name).to_csv("./data/movie_words.csv",index=False)
+    with open("./data/word_dict.pkl","wb") as f:
+        pickle.dump(word_dict,f)
     print("split movie finish!")
