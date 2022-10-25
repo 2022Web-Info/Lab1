@@ -31,12 +31,12 @@ def AndOperator(table1, table2):
             i += 1
             j += 1
         elif table1[0][i] < table2[0][j]:
-            while table1[1][i]['index'] is not None and table1[1][i]['value'] <= table2[0][j]:
+            while table1[1][i]['index'] is not None and table1[1][i]['value'] < table2[0][j]:
                 i = table1[1][i]['index']
             else:
                 i += 1
         else:
-            while table2[1][j]['index'] is not None and table2[1][j]['value'] <= table1[0][i]:
+            while table2[1][j]['index'] is not None and table2[1][j]['value'] < table1[0][i]:
                 j = table2[1][j]['index']
             else:
                 j += 1
@@ -71,24 +71,97 @@ def min_index(L: list[tuple]):
     return index
 
 
-def Operator(sentence: str, data:dict, id_all:list):
-    L = []
-    L.append(("AND", sentence.find("AND")))
-    L.append(("OR", sentence.find("OR")))
-    L.append(("NOT", sentence.find("NOT")))
-    index = min_index(L)
-    if L[index][1] == -1:
-        if sentence not in data.keys():
-            return ()
+def getPriority(operator: str):
+    if operator == ")" or operator == "(":
+        return 1
+    elif operator == 'OR':
+        return 2
+    elif operator == 'AND':
+        return 3
+    elif operator == 'NOT':
+        return 4
+
+
+def calculate(element_stack: list, id_all):
+    calculate_stack = []
+    for i in range(0, len(element_stack)):
+        if element_stack[i] != "NOT" and element_stack[i] != "AND" and element_stack[i] != "OR":
+            calculate_stack.append(element_stack[i])
+        elif element_stack[i] == "AND":
+            elem2 = calculate_stack.pop()
+            elem1 = calculate_stack.pop()
+            calculate_stack.append(AndOperator(elem1, elem2))
+        elif element_stack[i] == "OR":
+            elem2 = calculate_stack.pop()
+            elem1 = calculate_stack.pop()
+            calculate_stack.append(OrOperator(elem1, elem2))
         else:
-            return data[sentence]
-    else:
-        if L[index][0] == "AND":
-            return AndOperator(data[sentence[0:L[index][1]]], Operator(sentence[L[index][1] + 3:], data, id_all))
-        elif L[index][0] == "OR":
-            return OrOperator(data[sentence[0:L[index][1]]], Operator(sentence[L[index][1] + 2:], data, id_all))
+            elem1 = calculate_stack.pop()
+            calculate_stack.append(NotOperator(id_all, elem1))
+    return calculate_stack.pop()
+
+
+def bool_operator(sentence: str, data, id_all):
+    cstack = []
+    operator_stack = []
+    element_stack = []
+    while sentence != "":
+        cstack.append(("AND", sentence.find("AND")))
+        cstack.append(("OR", sentence.find("OR")))
+        cstack.append(("NOT", sentence.find("NOT")))
+        cstack.append(("(", sentence.find("(")))
+        cstack.append((")", sentence.find(")")))
+        index = min_index(cstack)
+        if cstack[index][1] == -1:
+            if sentence in data.keys():
+                element_stack.append(data[sentence])
+            else:
+                element_stack.append(())
+            break
         else:
-            return NotOperator(id_all, Operator(sentence[L[index][1] + 3:], data, id_all))
+            if cstack[index][0] == "(" or len(operator_stack) == 0:
+                operator_stack.append(cstack[index][0])
+                if cstack[index][0] == "AND" or cstack[index][0] == "OR":
+                    if sentence[0:cstack[index][1]] in data.keys():
+                        element_stack.append(data[sentence[0:cstack[index][1]]])
+                    else:
+                        element_stack.append(())
+                sentence = sentence[cstack[index][1] + len(cstack[index][0]):]
+            elif getPriority(operator_stack[len(operator_stack) - 1]) > getPriority(cstack[index][0]):
+                if cstack[index][0] == ")":
+                    if sentence[0:cstack[index][1]] in data.keys():
+                        element_stack.append(data[sentence[0:cstack[index][1]]])
+                    else:
+                        element_stack.append(())
+                    while len(operator_stack) != 0 and operator_stack[len(operator_stack) - 1] != "(":
+                        element_stack.append(operator_stack.pop())
+                    operator_stack.pop()
+                    sentence = sentence[cstack[index][1] + len(cstack[index][0]):]
+                else:
+                    if cstack[index][0] == "AND" or cstack[index][0] == "OR":
+                        if sentence[0:cstack[index][1]] in data.keys():
+                            element_stack.append(data[sentence[0:cstack[index][1]]])
+                        else:
+                            element_stack.append(())
+                    while len(operator_stack) != 0 and getPriority(
+                            operator_stack[len(operator_stack) - 1]) > getPriority(
+                        cstack[index][0]):
+                        element_stack.append(operator_stack.pop())
+                    operator_stack.append(cstack[index][0])
+                    sentence = sentence[cstack[index][1] + len(cstack[index][0]):]
+            else:
+                if cstack[index][0] == "AND" or cstack[index][0] == "OR":
+                    if sentence[0:cstack[index][1]] in data.keys():
+                        element_stack.append(data[sentence[0:cstack[index][1]]])
+                    else:
+                        element_stack.append(())
+                operator_stack.append(cstack[index][0])
+                sentence = sentence[cstack[index][1] + len(cstack[index][0]):]
+        cstack = []
+    while len(operator_stack) != 0:
+        element_stack.append(operator_stack.pop())
+    print(element_stack)
+    return calculate(element_stack, id_all)
 
 
 def get_data(file_name: str):
@@ -124,8 +197,8 @@ if __name__ == '__main__':
     else:
         print("输入错误")
     sentence = input("输入查询语句\n")
-    result = Operator(sentence, data, id_all)
+    result = bool_operator(sentence, data, id_all)
     if result == ():
         print("无相关结果")
     else:
-        print(Operator(sentence, data, id_all)[0])
+        print(bool_operator(sentence, data, id_all)[0])
