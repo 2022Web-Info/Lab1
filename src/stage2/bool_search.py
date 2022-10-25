@@ -1,4 +1,5 @@
 import csv
+import pandas as pd
 
 
 # 生成对应的 id 列表的倒排表和跳表指针
@@ -50,6 +51,7 @@ def OrOperator(table1, table2):
         return ()
     result = set(table1[0]) | set(table2[0])
     result = sorted(list(result))
+    print(result)
     return generate_table(result)
 
 
@@ -58,6 +60,7 @@ def NotOperator(id_all, table):
         return generate_table(id_all)
     result = set(id_all) - set(table[0])
     result = sorted(list(result))
+    print(result)
     return generate_table(result)
 
 
@@ -115,7 +118,7 @@ def bool_operator(sentence: str, data, id_all):
         if cstack[index][1] == -1:
             if sentence in data.keys():
                 element_stack.append(data[sentence])
-            else:
+            elif len(sentence) != 0:
                 element_stack.append(())
             break
         else:
@@ -124,14 +127,14 @@ def bool_operator(sentence: str, data, id_all):
                 if cstack[index][0] == "AND" or cstack[index][0] == "OR":
                     if sentence[0:cstack[index][1]] in data.keys():
                         element_stack.append(data[sentence[0:cstack[index][1]]])
-                    else:
+                    elif len(sentence[0:cstack[index][1]]) != 0:
                         element_stack.append(())
                 sentence = sentence[cstack[index][1] + len(cstack[index][0]):]
             elif getPriority(operator_stack[len(operator_stack) - 1]) > getPriority(cstack[index][0]):
                 if cstack[index][0] == ")":
                     if sentence[0:cstack[index][1]] in data.keys():
                         element_stack.append(data[sentence[0:cstack[index][1]]])
-                    else:
+                    elif len(sentence[0:cstack[index][1]]) != 0:
                         element_stack.append(())
                     while len(operator_stack) != 0 and operator_stack[len(operator_stack) - 1] != "(":
                         element_stack.append(operator_stack.pop())
@@ -141,7 +144,7 @@ def bool_operator(sentence: str, data, id_all):
                     if cstack[index][0] == "AND" or cstack[index][0] == "OR":
                         if sentence[0:cstack[index][1]] in data.keys():
                             element_stack.append(data[sentence[0:cstack[index][1]]])
-                        else:
+                        elif len(sentence[0:cstack[index][1]]) != 0:
                             element_stack.append(())
                     while len(operator_stack) != 0 and getPriority(
                             operator_stack[len(operator_stack) - 1]) > getPriority(
@@ -153,7 +156,7 @@ def bool_operator(sentence: str, data, id_all):
                 if cstack[index][0] == "AND" or cstack[index][0] == "OR":
                     if sentence[0:cstack[index][1]] in data.keys():
                         element_stack.append(data[sentence[0:cstack[index][1]]])
-                    else:
+                    elif len(sentence[0:cstack[index][1]]) != 0:
                         element_stack.append(())
                 operator_stack.append(cstack[index][0])
                 sentence = sentence[cstack[index][1] + len(cstack[index][0]):]
@@ -164,7 +167,7 @@ def bool_operator(sentence: str, data, id_all):
     return calculate(element_stack, id_all)
 
 
-def get_data(file_name: str):
+def get_data(file_name: str) -> dict:
     data_dic = {}
     with open(file_name, mode="r", encoding="utf8") as f:
         f_reader = csv.reader(f)
@@ -175,30 +178,48 @@ def get_data(file_name: str):
 
 
 if __name__ == '__main__':
-    filename_book = "../../data/book_invert_v2.csv"
-    filename_movie = "../../data/movie_invert_v2.csv"
-    id_all = []
-    data = {}
+    filename_book = "../../data/book_invert.csv"
+    filename_movie = "../../data/movie_invert.csv"
+    book_info = pd.read_csv("../../data/book.csv")
+    movie_info = pd.read_csv("../../data/movie.csv")
+    movie_id_all = []
+    book_id_all = []
+    data_book = get_data(filename_book)
+    data_movie = get_data(filename_movie)
+    with open(file="../../data/Book_id.txt", encoding="utf8", mode="r") as f:
+        reader = csv.reader(f)
+        next(reader)
+        for row in reader:
+            book_id_all.append(eval(row[0]))
+    with open(file="../../data/Movie_id.txt", encoding="utf8", mode="r") as f:
+        reader = csv.reader(f)
+        next(reader)
+        for row in reader:
+            movie_id_all.append(eval(row[0]))
     choice = int(input("输入查询的内容\t\t1 表示查询书籍 2表示查询电影\n"))
     if choice == 1:
-        data = get_data(filename_book)
-        with open(file="../../data/Book_id.txt", encoding="utf8", mode="r") as f:
-            reader = csv.reader(f)
-            next(reader)
-            for row in reader:
-                id_all.append(eval(row[0]))
+        sentence = input("输入查询语句\n")
+        result = bool_operator(sentence, data_book, book_id_all)
     elif choice == 2:
-        data = get_data(filename_movie)
-        with open(file="../../data/Movie_id.txt", encoding="utf8", mode="r") as f:
-            reader = csv.reader(f)
-            next(reader)
-            for row in reader:
-                id_all.append(eval(row[0]))
+        sentence = input("输入查询语句\n")
+        result = bool_operator(sentence, data_movie, movie_id_all)
     else:
+        result = ()
         print("输入错误")
-    sentence = input("输入查询语句\n")
-    result = bool_operator(sentence, data, id_all)
     if result == ():
         print("无相关结果")
     else:
-        print(bool_operator(sentence, data, id_all)[0])
+        print(result[0])
+        for id in result[0]:
+            if choice == 1:  # book
+                book_dict = book_info.loc[book_info['id'] == id]
+                book_content = book_dict['内容简介']
+                book_name = book_dict['书名']
+                print(book_name)
+                print(book_content)
+            else:  # movie
+                movie_dict = movie_info.loc[movie_info['id'] == id]
+                movie_info = movie_dict['剧情简介']
+                movie_name = movie_dict['电影名']
+                print(movie_name)
+                print(movie_info)
