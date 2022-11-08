@@ -22,6 +22,6 @@ class MF(nn.Module):
         U = self.user_emb(u_id)
         I = self.item_emb(i_id)
         b_u = self.user_bias(u_id).squeeze()
-        b_i = self.user_bias(i_id).squeeze()
+        b_i = self.item_bias(i_id).squeeze()
         return self.dropout((U * I).sum(1) + b_u + b_i + self.mean)
         

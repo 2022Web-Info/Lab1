@@ -7,7 +7,7 @@ def readData(data_path):
     print("reading data...")
     user_num = 545
     # 读取评分数据，将数据按时间排序，并按照 8：1：1划分数据集
-    data = pd.read_csv("./New_Movie_score.csv")
+    data = pd.read_csv("./Data/New_Movie_score.csv")
     data.sort_values(by='time', ascending=True, inplace=True)
     # index 得重排，不然切片会出错
     data = data.loc[:, ['user_id', 'movie_id', 'movie_score']].reset_index()
