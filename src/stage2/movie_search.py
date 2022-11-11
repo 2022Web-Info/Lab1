@@ -1,6 +1,7 @@
 from utils import *
 import synonyms
 import csv
+import pandas as pd
 
 
 # 将目标的 id 在全局的 list 中删除
@@ -26,24 +27,21 @@ def Or_MergeIndexTable(Word1: list[str], Word2: list[str]) -> list[str]:
     return list(set1 | set2)
 
 
-
 # 对输入的语句进行分词处理并得到每个词相应的近义词
 # 这里只选取了第一个最相近的近义词进行处理
 def GetMovieSynonymWords() -> list[tuple]:
-    sentence = input("请输入查询的语句")
+    sentence = input("请输入查询的语句\n")
     useless_keywords = {'导演', '编剧', '主演', '类型', '制片国家/地区', '又名', 'IMDb', '语言'}
     util = utils()
     words = util.split(sentence)
     # 将停用词去除
     words = words - useless_keywords
-    print(words)
     synonym_words = []
     for word in words:
         if synonyms.nearby(word) != ([], []):
             synonym_words.append((word, synonyms.nearby(word)[0][1]))
         else:
             synonym_words.append((word, word))
-    print(synonym_words)
     return synonym_words
 
 
@@ -69,7 +67,18 @@ def Natural_language_process() -> None:
             else:
                 id_dict[id] = 1
     # 输出排序后的结果
-    print(sorted(id_dict.items(), key=lambda x: x[1], reverse=True))
+    result = sorted(id_dict.items(), key=lambda x: x[1], reverse=True)
+    movie_info = pd.read_csv("../stage1/data/movie.csv")
+    for i, (id, _) in enumerate(result):
+        if i >= 4:
+            break
+        print("=" * 20 + f"查询结果 {i + 1} " + "=" * 20)
+        print(f"ID:\n\t{id}")
+        movie_dict = movie_info.loc[movie_info['id'] == id]
+        movie_content = movie_dict.iloc[0]['剧情简介']
+        movie_name = movie_dict.iloc[0]['电影名']
+        print(f"电影名: \n\t{movie_name}")
+        print(f"内容简介: \n{movie_content}")
 
 
 # 将近义词的 IdList 进行合并
@@ -77,7 +86,7 @@ def Natural_language_process() -> None:
 # 这里返回的输入的语句是分词之后的 id_list
 # 返回字典：key: word, value: id
 def Generate_Word_List(words: list[tuple]) -> dict:
-    file_name = "../../data/movie_invert.csv"
+    file_name = "data/movie_invert.csv"
     # 存储倒排索引表所有的数据
     dic = {}
     # 存储查询语句分词之后的索引数据
@@ -94,12 +103,9 @@ def Generate_Word_List(words: list[tuple]) -> dict:
     # print(dic)
     # 将 两个/多个 近义词的 id_list 合并
     for synonym_word in words:
-        print(synonym_word)
         for i in range(0, len(synonym_word), 2):
             if synonym_word[i] in dic.keys() and synonym_word[i + 1] in dic.keys():
-                print(synonym_word[i], synonym_word[i + 1])
                 query_WordId_dic[synonym_word[i]] = Or_MergeIndexTable(dic[synonym_word[i]], dic[synonym_word[i + 1]])
-                print(query_WordId_dic)
             elif synonym_word[i] in dic.keys():
                 query_WordId_dic[synonym_word[i]] = dic[synonym_word[i]]
             elif synonym_word[i + 1] in dic.keys():

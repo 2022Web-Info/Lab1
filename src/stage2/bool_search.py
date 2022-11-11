@@ -51,7 +51,6 @@ def OrOperator(table1, table2):
         return ()
     result = set(table1[0]) | set(table2[0])
     result = sorted(list(result))
-    print(result)
     return generate_table(result)
 
 
@@ -60,7 +59,6 @@ def NotOperator(id_all, table):
         return generate_table(id_all)
     result = set(id_all) - set(table[0])
     result = sorted(list(result))
-    print(result)
     return generate_table(result)
 
 
@@ -163,7 +161,6 @@ def bool_operator(sentence: str, data, id_all):
         cstack = []
     while len(operator_stack) != 0:
         element_stack.append(operator_stack.pop())
-    print(element_stack)
     return calculate(element_stack, id_all)
 
 
@@ -178,30 +175,31 @@ def get_data(file_name: str) -> dict:
 
 
 if __name__ == '__main__':
-    filename_book = "../../data/book_invert.csv"
-    filename_movie = "../../data/movie_invert.csv"
-    book_info = pd.read_csv("../../data/book.csv")
-    movie_info = pd.read_csv("../../data/movie.csv")
+    print("read data, please wait a moment...")
+    filename_book = "data/book_invert.csv"
+    filename_movie = "data/movie_invert.csv"
+    book_info = pd.read_csv("../stage1/data/book.csv")
+    movie_info = pd.read_csv("../stage1/data/movie.csv")
     movie_id_all = []
     book_id_all = []
     data_book = get_data(filename_book)
     data_movie = get_data(filename_movie)
-    with open(file="../../data/Book_id.txt", encoding="utf8", mode="r") as f:
+    with open(file="../stage1/data/Book_id.txt", encoding="utf8", mode="r") as f:
         reader = csv.reader(f)
         next(reader)
         for row in reader:
             book_id_all.append(eval(row[0]))
-    with open(file="../../data/Movie_id.txt", encoding="utf8", mode="r") as f:
+    with open(file="../stage1/data/Movie_id.txt", encoding="utf8", mode="r") as f:
         reader = csv.reader(f)
         next(reader)
         for row in reader:
             movie_id_all.append(eval(row[0]))
-    choice = int(input("输入查询的内容\t\t1 表示查询书籍 2表示查询电影\n"))
+    choice = int(input("选择查询类型( “1”查询书籍 “2”查询电影)\n"))
     if choice == 1:
-        sentence = input("输入查询语句\n")
+        sentence = input("查询书籍, 请输入查询条件\n")
         result = bool_operator(sentence, data_book, book_id_all)
     elif choice == 2:
-        sentence = input("输入查询语句\n")
+        sentence = input("查询电影, 请输入查询条件\n")
         result = bool_operator(sentence, data_movie, movie_id_all)
     else:
         result = ()
@@ -209,17 +207,19 @@ if __name__ == '__main__':
     if result == ():
         print("无相关结果")
     else:
-        print(result[0])
-        for id in result[0]:
+        print("\n")
+        for i, id in enumerate(result[0]):
+            print("=" * 20 + f"查询结果 {i+1} " + "=" * 20)
+            print(f"ID:\n\t{id}")
             if choice == 1:  # book
                 book_dict = book_info.loc[book_info['id'] == id]
-                book_content = book_dict['内容简介']
-                book_name = book_dict['书名']
-                print(book_name)
-                print(book_content)
+                book_content = book_dict.iloc[0]['内容简介']
+                book_name = book_dict.iloc[0]['书名']
+                print(f"书名: \n\t{book_name}")
+                print(f"内容简介: \n\t{book_content}")
             else:  # movie
                 movie_dict = movie_info.loc[movie_info['id'] == id]
-                movie_info = movie_dict['剧情简介']
-                movie_name = movie_dict['电影名']
-                print(movie_name)
-                print(movie_info)
+                movie_content = movie_dict.iloc[0]['剧情简介']
+                movie_name = movie_dict.iloc[0]['电影名']
+                print(f"电影名: \n\t{movie_name}")
+                print(f"内容简介: \n{movie_content}")

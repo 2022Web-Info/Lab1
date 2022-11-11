@@ -14,7 +14,7 @@ data = []
 def Catch_Book(start_index):
     # 获取需要爬取的页面ID
     book_id = []
-    with open("test.txt","r") as fin:
+    with open("data/Book_id.txt","r") as fin:
         book_i = fin.readline().strip("\n")
         while book_i:
             book_id.append(book_i)
@@ -69,7 +69,7 @@ def main():
     try :
         Catch_Book(start_index)
     finally:
-        pd.DataFrame(data, columns=col_name).to_csv('./book.csv', index=False, mode='a',header=need_header)
+        pd.DataFrame(data, columns=col_name).to_csv('data/book.csv', index=False, mode='a',header=need_header)
 
 if __name__ == "__main__":
     main()

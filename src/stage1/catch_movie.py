@@ -14,7 +14,7 @@ data = []
 def Catch_Movie(start_index):
     # 获取需要爬取的页面ID
     movie_id = []
-    with open("Movie_id.txt","r") as fin:
+    with open("data/Movie_id.txt","r") as fin:
         movie_i = fin.readline().strip("\n")
         while movie_i:
             movie_id.append(movie_i)
@@ -67,7 +67,7 @@ def main():
     try :
         Catch_Movie(start_index)
     finally:
-        pd.DataFrame(data, columns=col_name).to_csv('./book.csv', index=False, mode='a',header=need_header)
+        pd.DataFrame(data, columns=col_name).to_csv('data/book.csv', index=False, mode='a',header=need_header)
 
 if __name__ == "__main__":
     main()

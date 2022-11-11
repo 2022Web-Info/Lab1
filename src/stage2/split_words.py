@@ -162,11 +162,11 @@ def split_movie(movie):
     return key_words
 
 def main():
-    book_data = pd.read_csv("./data/book.csv")
-    book_tag = pd.read_csv("./data/Book_tag.csv")
+    book_data = pd.read_csv("../stage1/data/book.csv")
+    book_tag = pd.read_csv("data/Book_tag.csv")
     stopwords = {
         line.strip()
-        for line in open('./data/stopwords.txt', encoding='utf8').readlines()
+        for line in open('data/stopwords.txt', encoding='utf8').readlines()
     }
     for word in ['','\n',' ','\u3000']: # 添加额外的停用词
         stopwords.add(word)
@@ -181,11 +181,11 @@ def main():
         key_words = set.union(key_words, tag_words)
         key_words = key_words - stopwords
         book_words.append({'id': book['id'], 'words': key_words})
-    pd.DataFrame(book_words,columns=col_name).to_csv("./data/book_words.csv",index=False)
+    pd.DataFrame(book_words,columns=col_name).to_csv("data/book_words.csv", index=False)
     print("split book finish!")
 
-    movie_data = pd.read_csv("./data/movie.csv")
-    movie_tag = pd.read_csv("./data/Movie_tag.csv")
+    movie_data = pd.read_csv("../stage1/data/movie.csv")
+    movie_tag = pd.read_csv("data/Movie_tag.csv")
     col_name = ['id', 'words']
     movie_words = []
     for _,movie in tqdm(movie_data.iterrows(), total=movie_data.shape[0], leave=False):
@@ -195,8 +195,8 @@ def main():
         key_words = set.union(key_words, tag_words)
         key_words = key_words - stopwords
         movie_words.append({'id': movie['id'], 'words': key_words})
-    pd.DataFrame(movie_words,columns=col_name).to_csv("./data/movie_words.csv",index=False)
-    with open("./data/word_dict.pkl","wb") as f:
+    pd.DataFrame(movie_words,columns=col_name).to_csv("data/movie_words.csv", index=False)
+    with open("data/word_dict.pkl", "wb") as f:
         pickle.dump(word_dict,f)
     print("split movie finish!")
 

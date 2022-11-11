@@ -1,6 +1,6 @@
 # 实验 1 信息获取与检索分析
 
-方羿 PB19111647	熊鹏 PB19111	张舒恒 PB19030888
+方羿 PB19111647	熊鹏 PB19111671	张舒恒 PB19030888
 
 ## stage1. 爬虫
 
@@ -107,8 +107,9 @@ for i, str in enumerate(stuff):
 
 ### 结果展示
 
-- 具体代码详见 `./src/stage1/catch_book.py` 和 `./src/stage1/catch_movie.py` 
-- 电影和书籍的爬取详细结果见：`./data/movie.csv` 和 `./data/book.csv`
+- 具体代码详见 `stage1/catch_book.py` 和 `stage1/catch_movie.py` 
+
+- 电影和书籍的爬取详细结果见：`stage1/data/movie.csv` 和 `stage1/data/book.csv`
 
 - 这里仅展示部分截图
 
@@ -145,6 +146,7 @@ border-bottom: 1px solid
     color: #999;
     padding: 2px;">书籍爬取结果</div>
 </center>
+
 
 
 
@@ -274,18 +276,239 @@ def gen_invert_table():
 
 #### 三、布尔查询
 
+> ​		对于给定的 `bool` 查询 $\text{Q}_\text{bool}$ ，根据生成的倒排索引表 S，返回符合查询规则的电影或书籍集合，并以合适的方式展现给用户，给出电影名称和分类或部分简介。
+
+##### **step1. 中缀布尔表达式转后缀布尔表达式**
+
+**输入布尔表达式，首先对其进行处理，使他计算次序符合 `AND`, `OR`, `NOT` 的运算次序，例如 `A OR B AND C` 计算的次序为 `A OR (B AND C)`。**
+
+假设输入都是合法的，先将输入的中缀布尔表达式转化成后缀布尔表达式，例如 A AND B 转换成 A B AND
+
+具体步骤如下：
+
+0. 设立了两个栈，分别存储 `操作符` 和 `字符`
+
+1. 对于输入的语句，搜索 `AND` ，`OR`，`NOT`，`(`，`)` 所在的位置
+
+   - 如果都不出现在语句中，说明语句处理完毕，跳转到 4
+
+2. 判断搜寻到的操作符是否满足下列情况
+
+   - `(`或者 `操作符栈`为空：
+     - 直接将操作符加入对应栈中，并根据操作符类型选择是否将操作符前方临近的字符加入字符栈中
+
+   - `AND`，`OR` 时直接添加
+
+   - 如果 栈顶 的操作符优先级高于搜寻到的操作符优先级
+
+     - 如果该操作符是 `)`
+       - 将操作符栈的字符 `pop` 到 字符栈中，直到 `(` 
+
+     - 否则，将操作符栈 `pop` 到字符栈中，直到不满足上述条件
+
+3. 其他情况，则直接将操作符压入栈中，并根据操作符类型选择是否将操作符前方临近的字符加入字符栈中
+
+4. 布尔查询语句字符处理完毕，将操作符栈中剩余的所有操作符压入字符栈中
+
+##### **step2. 计算后缀表达式**
+
+​		新建立了一个栈，存储布尔表达式中间过程和最终的计算结果
+
+`element_stack` 为上面最终得到的字符栈，`calcula_stack` 存储中间过程的计算结果
+
+```python
+calculate_stack = []
+for i in range(0, len(element_stack)):
+    if element_stack[i] != "NOT" and element_stack[i] != "AND" and element_stack[i] != "OR":
+        calculate_stack.append(element_stack[i])
+    elif element_stack[i] == "AND":
+        elem2 = calculate_stack.pop()
+        elem1 = calculate_stack.pop()
+        calculate_stack.append(AndOperator(elem1, elem2))
+    elif element_stack[i] == "OR":
+        elem2 = calculate_stack.pop()
+        elem1 = calculate_stack.pop()
+        calculate_stack.append(OrOperator(elem1, elem2))
+    else:
+        elem1 = calculate_stack.pop()
+        calculate_stack.append(NotOperator(id_all, elem1))
+```
+
+##### **step3. 布尔检索**
+
+​		我们在第一部分 `布尔表达式中缀转后缀` 已经把每一个词分离出来了，我们进行 `AND`, `OR`, `NOT` 操作时，只需要将这个词对应的倒排表进行 `AND`, `OR`, `NOT` 操作即可。
+
+> ​		起初，我们想先调用近义词库，先把分离出的每个词先找他临近的近义词，先把这些词的倒排表合并，再进行查询语句的布尔运算，但是 `synonyms` 库的效果不尽人意，所以我们在布尔查询里面没有使用近义词库。
+
+​		`AND` 对应倒排表运算，我们采用了跳表指针进行合并。
+
+```python
+# ([1007433],[{'index': None, 'value': None}])
+# table 为上述结构, 元组内第一个元素为 id 列表, 第二个元素为该 id 对应的跳表指针
+# index, value 是下标和下标对应的 id 值
+def AndOperator(table1, table2):
+    if table1 == () or table2 == ():
+        return ()
+    result = []
+    i = j = 0
+    while i < len(table1[0]) and j < len(table2[0]):
+        # 两个 list 相等，则合并到新表中
+        if table1[0][i] == table2[0][j]:
+            result.append(table1[0][i])
+            i += 1
+            j += 1
+        elif table1[0][i] < table2[0][j]:
+            # 判定记录是否存在跳表指针以及跳表指针的后续 id 是否小于当前判定的列表 id
+            # 满足，则跳转，否则不跳
+            while table1[1][i]['index'] is not None and table1[1][i]['value'] < table2[0][j]:
+                i = table1[1][i]['index']
+            else:
+                i += 1
+        else:# 同理
+            while table2[1][j]['index'] is not None and table2[1][j]['value'] < table1[0][i]:
+                j = table2[1][j]['index']
+            else:
+                j += 1
+    return generate_table(result)
+```
+
+​		`OR` 运算代表的是倒排表的并集运算，我们这里采用的是直接使用 `set` 集合的或运算进行合并。
+
+​		得到新表后，重新插入跳表指针
+
+```python
+def OrOperator(table1, table2):
+    if table1 == ():
+        return table2
+    elif table2 == ():
+        return ()
+    result = set(table1[0]) | set(table2[0])
+    # 排序
+    result = sorted(list(result))
+    # 重新生成跳表指针
+    return generate_table(result)
+```
+
+​		`NOT` 运算是将全部 id 减去 对应词的 id 列表，我们这里采用的是直接使用 `set` 集合的补运算进行合并。
+
+​		得到新表后，重新插入跳表指针。
+
+```python
+def NotOperator(id_all, table):
+    if table == ():
+        return generate_table(id_all)
+    result = set(id_all) - set(table[0])
+    result = sorted(list(result))
+    return generate_table(result)
+```
+
 #### 四、自然语言查询
+
+先对输入的语句进行分词处理，调用第一部分所写的分词函数，分词之后调用近义词库，将近义词对应的倒排表合并，之后再统计每个分词中对应倒排表 id 出现的次数，将其排序。
+
+##### step1. 分词，找近义词
+
+```python
+# 对输入的语句进行分词处理并得到每个词相应的近义词
+# 这里只选取了第一个最相近的近义词进行处理
+def GetMovieSynonymWords() -> list[tuple]:
+    sentence = input("请输入查询的语句")
+    useless_keywords = {'导演', '编剧', '主演', '类型', '制片国家/地区', '又名', 'IMDb', '语言'}
+    util = utils()
+    words = util.split(sentence)
+    # 将停用词去除
+    words = words - useless_keywords
+    print(words)
+    synonym_words = []
+    for word in words:
+        if synonyms.nearby(word) != ([], []):
+            synonym_words.append((word, synonyms.nearby(word)[0][1]))
+        else:
+            synonym_words.append((word, word))
+    return synonym_words
+```
+
+##### step2. 合并近义词的倒排表
+
+```python
+# 将近义词的 IdList 进行合并
+# words: 分好的词集合
+# 这里返回的输入的语句是分词之后的 id_list
+# 返回字典：key: word, value: id
+def Generate_Word_List(words: list[tuple]) -> dict:
+    file_name = "../../data/movie_invert.csv"
+    # 存储倒排索引表所有的数据
+    dic = {}
+    # 存储查询语句分词之后的索引数据
+    query_WordId_dic = {}
+    with open(file_name, encoding="utf8", mode='r') as f:
+        csv_reader = csv.reader(f)
+        # 从第二行开始读取
+        next(csv_reader)
+        # 将第二个字符串转为列表
+        # 列表中含有的是 id 字段
+        for row in csv_reader:
+            dic[row[0]] = eval(row[1])
+            # print(type(dic[row[0]][0]))
+    # print(dic)
+    # 将 两个/多个 近义词的 id_list 合并
+    for synonym_word in words:
+        print(synonym_word)
+        for i in range(0, len(synonym_word), 2):
+            if synonym_word[i] in dic.keys() and synonym_word[i + 1] in dic.keys():
+                print(synonym_word[i], synonym_word[i + 1])
+                query_WordId_dic[synonym_word[i]] = Or_MergeIndexTable(dic[synonym_word[i]], dic[synonym_word[i + 1]])
+                print(query_WordId_dic)
+            elif synonym_word[i] in dic.keys():
+                query_WordId_dic[synonym_word[i]] = dic[synonym_word[i]]
+            elif synonym_word[i + 1] in dic.keys():
+                query_WordId_dic[synonym_word[i]] = dic[synonym_word[i + 1]]
+            else:
+                query_WordId_dic[synonym_word[i]] = []
+    return query_WordId_dic
+```
+
+##### step3. 自然语言检索
+
+```python
+# 自然语言处理函数
+# 处理已经得到的词对应的 id 列表
+# 统计各 id 出现的次数
+# 并将其进行排序输出
+def Natural_language_process() -> None:
+    # 记录查询语句中出现的词 以及对应的 id 列表
+    query_dict = {}
+    synonym_words = GetMovieSynonymWords()
+    query_dict = Generate_Word_List(synonym_words)
+    # 记录每一个 id 出现的次数
+    id_dict = {}
+    # 遍历字典中的每一个词
+    for word in query_dict:
+        id_list = query_dict[word]
+        # 遍历词对应中 id_list 每一个 id
+        # 并记录 id 出现的次数
+        for id in id_list:
+            if id in id_dict.keys():
+                id_dict[id] += 1
+            else:
+                id_dict[id] = 1
+    # 输出排序后的结果
+    print(sorted(id_dict.items(), key=lambda x: x[1], reverse=True))
+```
 
 ### 结果展示
 
-- 具体代码详见 `./src/stage2` 文件夹下：
+#### bool 查询的结果
 
-  ``` bash
-  split_words.py	# 分词
-  # ToDo 这里要填每个文件是干嘛的
-  ```
+![](./figs/03.png)
 
+![](./figs/07.png)
 
+![](./figs/08.png)
+
+#### 自然语言查询结果
+
+![](figs/06.png)
 
 
 
@@ -341,7 +564,7 @@ def gen_invert_table():
 
 然后，**我们将数据集按时间戳排序，并按照 8：1：1 的比例，分词训练集、验证集和测试集。**
 
-具体实现见 `./src/stage3/GetData.py` 和 `./src/stage3/Dataset.py`
+具体实现见 `stage3/GetData.py` 和 `stage3/Dataset.py`
 
 #### 三、MF模型实现
 
@@ -435,27 +658,72 @@ def metrics(model, evaluate_set:dict):
 
 ### 结果分析
 
-1. 我们训练了 20 个 ecpoch, 取验证集里 ndcg 最高的模型作为最终模型，最后得到的结果如下图所示，测试集的最终的 ndcg = 0.844：
+1. 我们训练了 20 个 ecpoch, 取验证集里 ndcg 最高的模型作为最终模型，最后得到的结果如下图所示，测试集的**最终的 ndcg = 0.844**：
 
-   ![](./figs/result.png)
+   ![](figs\result.png)
 
-2. 然后我们根据训练好的模型，将每个 user 的预测排名和实际排名存到 `./src/stage3/Data/rank_result.csv` 中。部分结果如下图所示：
+2. 然后我们根据训练好的模型，将每个 user 的预测排名和实际排名存到 `stage3/Data/rank_result.csv` 中。部分结果如下图所示：
 
 <img src="C:\Users\peterfang\AppData\Roaming\Typora\typora-user-images\image-20221111201459237.png" alt="image-20221111201459237" style="zoom:50%;" />
 
-- 观察以上排序数据，我们发现存在部分排序预测实际不是很好，比如 user_id=18 的，它相当于完全错了，但是按照上述ndcg的算法，它的 ndcg = 0.8540645566659568
+- 观察排序数据，我们发现大部分 item 的排序位置都相对正确
+
+- 但仍然存在部分排序预测实际不是很好，比如 user_id=18 的预测结果为['333(4)', '514(5)']，理论上来说它相当于完全错了。**但是由于 item 数比较少，以及 item 评分都很高，评分相差不大。**故按照上述ndcg的算法，它的 ndcg = 0.8540645566659568
 
 - 同时存在像 user_id=16 的数据那样，只有一个 item 的情况，这样不管模型好坏，它 ndcg = 1
 
 - 所以算出来的 ndcg 实际上是虚高的。因此，ndcg 在我们这种场景下，可能不是一个很好的评估模型好坏的指标。
 
-  (当然也可能是我这种 ndcg 的算法有问题。但是实验文档里没有说怎么算。我问了一个助教，助教说可以这么算)
+  (当然也可能是我们这种 ndcg 的算法有问题。但是实验文档里没有说怎么算。我们问了助教，助教说可以这么算)
 
   
 
 ## 提交文件说明
 
-
+``` bash
+├───stage1
+│   │   catch_book.py	# 书籍信息的爬取
+│   │   catch_movie.py	# 电影的爬取
+│   │
+│   └───data
+│           book.csv	# 书籍爬取结果
+│           Book_id.txt	# 要求爬取的书籍id
+│           movie.csv	# 电影爬取结果
+│           Movie_id.txt	# 要求爬取的电影id
+│
+├───stage2
+│   │   bool_search.py	# 布尔检索
+│   │   gen_invert_table.py	# 建立倒排表
+│   │   movie_search.py	# 用自然语言来搜索电影
+│   │   split_words.py	# 分词
+│   │   utils.py	# 一些辅助函数
+│   │
+│   └───data
+│           book_invert.csv	# 书籍的倒排表
+│           Book_tag.csv	# 书籍的tag
+│           book_words.csv	# 书籍的分词结果
+│           movie_invert.csv	# 电影的倒排表
+│           Movie_tag.csv	# 电影的tag
+│           movie_words.csv	# 电影的分词结果
+│           stopwords.txt	# 停用词表
+│           word_dict.pkl	# 分词字典
+│
+└───stage3
+    │   Dataset.py	# 将原始数据划分成训练集、验证集和测试集
+    │   Evaluate.py	# 评估排序结果，计算ndcg
+    │   GetData.py	# 将 user_id 的 movie_id 重排
+    │   get_rank_result.py	# 通过训练好的模型得到排序结果
+    │   Model.py	# MF模型
+    │   train.py	# 模型训练
+    │
+    ├───Data
+    │       Movie_score.csv	# 原始数据
+    │       New_Movie_score.csv	# 处理过ID的数据
+    │       rank_result.csv	# 预测的测试集排序结果
+    │
+    └───Model
+            MF_DoubanMovie_0.005lr_0dropout_20factornum.pth	# 训练好的模型
+```
 
 
 
