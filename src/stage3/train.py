@@ -29,8 +29,6 @@ def run():
     factor_num = 20
     user_num = 545
     item_num = 1000
-
-    os.environ['CUDA_LAUNCH_BLOCKING'] = '1' # 下面老是报错 shape 不一致
     
     # 准备数据集和模型
     trainData, validSet, testSet, mean = Dataset.readData("./Movie_score.csv")

@@ -161,7 +161,7 @@ def split_movie(movie):
         jieba.del_word(word)
     return key_words
 
-if __name__ == "__main__":
+def main():
     book_data = pd.read_csv("./data/book.csv")
     book_tag = pd.read_csv("./data/Book_tag.csv")
     stopwords = {
@@ -199,3 +199,6 @@ if __name__ == "__main__":
     with open("./data/word_dict.pkl","wb") as f:
         pickle.dump(word_dict,f)
     print("split movie finish!")
+
+if __name__ == "__main__":
+    main()
